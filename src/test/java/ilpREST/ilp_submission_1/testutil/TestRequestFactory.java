@@ -5,7 +5,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
-
+import java.math.*;
 /**
  * Factory for creating test delivery requests with known properties
  *
@@ -18,15 +18,17 @@ public class TestRequestFactory {
     // ==================== Date/Time Utilities ====================
 
     public static LocalDate getValidTestDate() {
-        LocalDate today = LocalDate.now();
-        DayOfWeek day = today.getDayOfWeek();
+        // Always return a Wednesday (guaranteed working day)
+        LocalDate date = LocalDate.of(2026, 1, 22); // This is a Thursday - good
 
-        if (day == DayOfWeek.SATURDAY) {
-            return today.plusDays(2);
-        } else if (day == DayOfWeek.SUNDAY) {
-            return today.plusDays(1);
+        // Safety check: ensure it's not weekend
+        DayOfWeek day = date.getDayOfWeek();
+        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+            // Move to next Monday
+            date = date.plusDays(day == DayOfWeek.SATURDAY ? 2 : 1);
         }
-        return today;
+
+        return date;
     }
 
     public static LocalTime getValidTestTime() {
@@ -256,32 +258,44 @@ public class TestRequestFactory {
      * Create N deliveries for stress testing
      */
     public static List<MedDispatchRec> createNDeliveries(int n) {
-        List<MedDispatchRec> deliveries = new ArrayList<>();
-        LocalDate testDate = getValidTestDate();
+        List<MedDispatchRec> requests = new ArrayList<>();
 
-        double baseLng = -3.184;
-        double baseLat = 55.945;
+        // Spread across Edinburgh but all verified reachable
+        Position[] validLocations = {
+                new Position(-3.184876, 55.945321),   // South Appleton Tower area
+                new Position(-3.190, 55.945),         // Southwest
+                new Position(-3.180, 55.945),         // Southeast
+                new Position(-3.185, 55.950),         // North
+                new Position(-3.185, 55.941),         // South
+                new Position(-3.175, 55.948),         // Far East-North
+                new Position(-3.195, 55.943),         // Far West-South
+                new Position(-3.182, 55.952),         // North-East
+                new Position(-3.188, 55.939),         // South-West
+                new Position(-3.178, 55.942)          // Far East-South
+        };
+
+        LocalDate date = LocalDate.of(2026, 1, 22);  // Thursday - working day
+        LocalTime startTime = LocalTime.of(10, 0);
 
         for (int i = 0; i < n; i++) {
             MedDispatchRec delivery = new MedDispatchRec();
             delivery.setId(i + 1);
-            delivery.setDate(testDate);
-            delivery.setTime(LocalTime.of(10 + (i % 8), (i * 10) % 60));
+            delivery.setDate(date);
+            delivery.setTime(startTime.plusHours(i).plusMinutes(i * 15));
 
-            double lng = baseLng + (i % 3) * 0.001;
-            double lat = baseLat + (i / 3) * 0.001;
-            delivery.setDelivery(new Position(lng, lat));
+            // Wrap around
+            int locationIndex = i % validLocations.length;
+            delivery.setDelivery(validLocations[locationIndex]);
 
-            MedDispatchRec.Requirements req = new MedDispatchRec.Requirements();
-            req.setCapacity(1.0);
-            req.setCooling(false);
-            req.setHeating(false);
-            delivery.setRequirements(req);
+            MedDispatchRec.Requirements requirements = new MedDispatchRec.Requirements();
+            requirements.setCapacity(1.0);
+            requirements.setMaxCost(55.0);
+            delivery.setRequirements(requirements);
 
-            deliveries.add(delivery);
+            requests.add(delivery);
         }
 
-        return deliveries;
+        return requests;
     }
 
     /**

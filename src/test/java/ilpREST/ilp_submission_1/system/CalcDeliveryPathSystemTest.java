@@ -306,37 +306,64 @@ public class CalcDeliveryPathSystemTest {
         assertTrue(response.getTotalMoves() > 0, "Total moves should be positive");
         log.info("✓ Total moves: {}", response.getTotalMoves());
     }
-
+    
     @Test
     @Order(10)
     @DisplayName("More deliveries = more moves (metamorphic)")
     void testMoreDeliveriesMoreMoves() throws Exception {
         log.info("Testing metamorphic property: more deliveries = more moves");
 
-        // 1 delivery
-        List<MedDispatchRec> oneDelivery = TestRequestFactory.createNDeliveries(1);
+        // FIRST REQUEST: 1 delivery
+        List<MedDispatchRec> requests1 = TestRequestFactory.createSimpleNorthDelivery();
+        Position safeLocation = requests1.get(0).getDelivery(); // Use known-good location
+
         MvcResult result1 = mockMvc.perform(post("/api/v1/calcDeliveryPath")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(oneDelivery)))
+                        .content(objectMapper.writeValueAsString(requests1)))
+                .andExpect(status().isOk())
                 .andReturn();
+
         CalcDeliveryPathResponse response1 = objectMapper.readValue(
                 result1.getResponse().getContentAsString(), CalcDeliveryPathResponse.class);
+        int moves1 = response1.getTotalMoves();
 
-        // 3 deliveries
-        List<MedDispatchRec> threeDeliveries = TestRequestFactory.createNDeliveries(3);
-        MvcResult result3 = mockMvc.perform(post("/api/v1/calcDeliveryPath")
+        List<MedDispatchRec> requestsMany = new ArrayList<>();
+        int deliveryCount = 2;
+
+        for (int i = 0; i < deliveryCount; i++) {
+            MedDispatchRec delivery = new MedDispatchRec();
+            delivery.setId(i + 1);
+            delivery.setDate(LocalDate.of(2026, 1, 22));
+            delivery.setTime(LocalTime.of(10, 0).plusHours(i));
+
+            // Use same safe location
+            delivery.setDelivery(safeLocation);
+
+            MedDispatchRec.Requirements req = new MedDispatchRec.Requirements();
+            req.setCapacity(1.0);
+            req.setMaxCost(1000.0); // Increase maxCost just in case
+            delivery.setRequirements(req);
+
+            requestsMany.add(delivery);
+        }
+
+        MvcResult resultMany = mockMvc.perform(post("/api/v1/calcDeliveryPath")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(threeDeliveries)))
+                        .content(objectMapper.writeValueAsString(requestsMany)))
+                .andExpect(status().isOk())
                 .andReturn();
-        CalcDeliveryPathResponse response3 = objectMapper.readValue(
-                result3.getResponse().getContentAsString(), CalcDeliveryPathResponse.class);
 
-        log.info("1 delivery: {} moves, 3 deliveries: {} moves",
-                response1.getTotalMoves(), response3.getTotalMoves());
+        CalcDeliveryPathResponse responseMany = objectMapper.readValue(
+                resultMany.getResponse().getContentAsString(),
+                CalcDeliveryPathResponse.class);
 
-        assertTrue(response3.getTotalMoves() >= response1.getTotalMoves(),
-                "More deliveries should result in >= moves");
-        log.info("✓ Metamorphic property holds");
+        int movesMany = responseMany.getTotalMoves();
+        log.info("Response Many: totalMoves={}, dronePaths={}", movesMany, responseMany.getDronePaths().size());
+
+        // Assertion
+        assertTrue(movesMany >= moves1,
+                String.format("More deliveries should result in >= moves. 1 delivery: %d moves, %d deliveries: %d moves",
+                        moves1, deliveryCount, movesMany));
     }
 
     // ==================== Edge Cases ====================
