@@ -39,7 +39,7 @@ public class FlightPathGenerator {
             }
 
             // Add the hover at delivery position (duplicate)
-            flightPath.add(toResponsePosition(deliveryPos));
+            //flightPath.add(toResponsePosition(deliveryPos));
 
             result.add(new CalcDeliveryPathResponse.DeliveryPath(delivery.getId(), flightPath));
             currentPos = deliveryPos;
