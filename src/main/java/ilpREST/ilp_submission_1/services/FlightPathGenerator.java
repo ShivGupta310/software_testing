@@ -44,7 +44,7 @@ public class FlightPathGenerator {
             result.add(new CalcDeliveryPathResponse.DeliveryPath(delivery.getId(), flightPath));
             currentPos = deliveryPos;
         }
-
+//comment
         // Generate final return leg from last delivery to service point
         List<Position> returnLeg = generateLeg(currentPos, servicePoint, forbiddenRegions);
         if (returnLeg == null) {
